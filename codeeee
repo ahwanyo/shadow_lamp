@@ -1,0 +1,147 @@
+
+const int RledPin = 9;
+const int GledPin = 10;
+const int BledPin = 11;
+const int buttonPin = 2;
+const int potPin = A0;
+
+
+int redList[8]   = {255, 255, 255,   0,   0,   0, 150, 255};
+int greenList[8] = {  0,  80, 200, 255, 255,   0,   0, 255};
+int blueList[8]  = {  0,   0,   0,   0, 200, 255, 255, 255};
+int color = 0;
+
+// 目前的顏色
+int nowR = 0;
+int nowG = 0;
+int nowB = 0;
+
+// 目標顏色
+int targetR = 255;
+int targetG = 0;
+int targetB = 0;
+
+bool rainbow = false;
+int hue = 0;
+
+// 按鈕
+int buttonState = HIGH;
+int lastButtonState = HIGH;
+bool longPressed = false;
+unsigned long pressTime = 0;
+
+// 時間
+unsigned long previousMillis = 0;
+const long interval = 10;        
+const long longPressTime = 1000; 
+
+void setup() {
+  pinMode(RledPin, OUTPUT);
+  pinMode(GledPin, OUTPUT);
+  pinMode(BledPin, OUTPUT);
+  pinMode(buttonPin, INPUT_PULLUP);
+  Serial.begin(9600);
+}
+
+void loop() {
+  unsigned long currentMillis = millis();
+  buttonState = digitalRead(buttonPin);
+
+
+  if (buttonState == LOW && lastButtonState == HIGH) {
+    pressTime = currentMillis;
+    longPressed = false;
+    delay(20);  
+  }
+
+  // ===== 按住超過 1 秒 長按 =====
+  if (buttonState == LOW && longPressed == false) {
+    if (currentMillis - pressTime >= longPressTime) {
+      longPressed = true;
+      if (rainbow == false) {
+        rainbow = true;
+        Serial.println("Rainbow ON");
+      }
+      else {
+        rainbow = false;
+        targetR = redList[color];
+        targetG = greenList[color];
+        targetB = blueList[color];
+        Serial.println("Rainbow OFF");
+      }
+    }
+  }
+
+  // ===== 按鈕放開如果不是長按就是短按 =====
+  if (buttonState == HIGH && lastButtonState == LOW) {
+    if (longPressed == false) {
+      if (rainbow == true) {
+        rainbow = false;
+      }
+      else {
+        color = color + 1;
+        if (color > 7) {
+          color = 0;
+        }
+      }
+      targetR = redList[color];
+      targetG = greenList[color];
+      targetB = blueList[color];
+      Serial.print("Color: ");
+      Serial.println(color);
+    }
+    delay(20);   // 防彈跳
+  }
+
+  lastButtonState = buttonState;
+
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+
+   
+    if (rainbow == true) {
+      hue = hue + 2;
+      if (hue >= 1536) {
+        hue = 0;
+      }
+      int x = hue % 256;
+      if (hue < 256) {
+        targetR = 255;     targetG = x;       targetB = 0;
+      }
+      else if (hue < 512) {
+        targetR = 255 - x; targetG = 255;     targetB = 0;
+      }
+      else if (hue < 768) {
+        targetR = 0;       targetG = 255;     targetB = x;
+      }
+      else if (hue < 1024) {
+        targetR = 0;       targetG = 255 - x; targetB = 255;
+      }
+      else if (hue < 1280) {
+        targetR = x;       targetG = 0;       targetB = 255;
+      }
+      else {
+        targetR = 255;     targetG = 0;       targetB = 255 - x;
+      }
+    }
+
+   
+    if (nowR < targetR) nowR = min(nowR + 3, targetR);
+    if (nowR > targetR) nowR = max(nowR - 3, targetR);
+    if (nowG < targetG) nowG = min(nowG + 3, targetG);
+    if (nowG > targetG) nowG = max(nowG - 3, targetG);
+    if (nowB < targetB) nowB = min(nowB + 3, targetB);
+    if (nowB > targetB) nowB = max(nowB - 3, targetB);
+
+ 
+    int brightness = map(analogRead(potPin), 0, 1023, 15, 255);
+
+    int outR = nowR * brightness / 255;
+    int outG = nowG * brightness / 255;
+    int outB = nowB * brightness / 255;
+
+    analogWrite(RledPin, 255 - outR);
+    analogWrite(GledPin, 255 - outG);
+    analogWrite(BledPin, 255 - outB);
+  }
+}
